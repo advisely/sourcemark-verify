@@ -132,8 +132,20 @@ def main() -> int:
           any("issuer signature was not checked" in n
               for n in verify(valid, log_key, cited_text=valid_text).notes))
 
-    # §5: the report must not call the answer proven, correct, or accurate.
     from sourcemark_verify.cli import render
+
+    # The launch gate asks a stranger to determine that the cited text is at
+    # page 47 of that document. A report that never names a location cannot
+    # answer that, however many proofs it folded.
+    gate = verify(valid, log_key, source_bytes=source)
+    rendered = render(gate, receipt_path="x")
+    check("the report names the page it proved", "page 47" in rendered)
+    check("and the byte range", "98211" in rendered)
+    check("and which document version", "dv_c0nf01" in rendered)
+    check("without using a word §5 forbids",
+          not any(w in rendered.lower() for w in ("proven", "correct", "accurate")))
+
+    # §5: the report must not call the answer proven, correct, or accurate.
     text_out = render(verify(valid, log_key, cited_text=valid_text), receipt_path="x").lower()
     for word in ("proven", "correct", "accurate"):
         check(f"the report never calls the answer {word}", word not in text_out)

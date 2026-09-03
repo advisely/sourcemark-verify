@@ -657,8 +657,27 @@ def verify(
                         "the proof's root_hash is not the root the tree head signed")
     except (ValueError, CborError) as exc:
         return fail("FORGED", "inclusion proofs", str(exc))
-    ok("leaf reconstruction and three folds",
-       "chunk → doc_root → corpus_root → signed root")
+    # Name the location. The launch gate asks a stranger to determine that the
+    # cited text is genuinely at page 47 of that document, and a report that
+    # says only "the proofs fold" does not let them do that -- they would have
+    # to open the receipt themselves to find out what was proven about where.
+    where = []
+    if location.get("page") is not None:
+        where.append(f"page {location['page']}")
+    if location.get("paragraph"):
+        where.append(str(location["paragraph"]))
+    if location.get("bbox"):
+        where.append("bbox " + ",".join(str(v) for v in location["bbox"]))
+    where.append("bytes {}–{}".format(*location["byte_range"]))
+    ok("leaf reconstruction and three folds", " · ".join(where))
+    # Not "location proven". verification.md §5 forbids the word anywhere in
+    # a verifier's output, and the rule is blunt on purpose: the failure mode
+    # is a reader skimming a report and carrying "proven" over to the answer.
+    report.notes.append(
+        f"Custody covers: {' · '.join(where)} of "
+        f"{custody['source']['source_uri']} "
+        f"({custody['source']['document_version_id']})."
+    )
 
     # 4. Content binding -> TAMPERED, or defer ERASED
     opening = custody["derivation"]["opening"]
