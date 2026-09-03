@@ -1,6 +1,6 @@
 name: conformance
 
-on: [push, pull_request]
+"on": [push, pull_request]
 
 env:
   # Pinned, not floating. A verifier that follows main can be made to pass by
