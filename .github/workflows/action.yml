@@ -1,0 +1,47 @@
+name: action
+
+"on": [push, pull_request]
+
+# The action is run against this project's own conformance vectors on every
+# push. A Marketplace listing whose action is never exercised is a listing that
+# breaks quietly between releases, and the first person to find out is a
+# stranger who trusted it.
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install cryptography
+      - run: tests/fetch-vectors.sh main
+
+      - name: the runner's own tests
+        run: python3 -m tests.test_action
+
+      # A vector that must pass.
+      - name: a verified receipt passes
+        uses: ./
+        with:
+          receipt: .vectors/conformance/vectors/valid/receipt.cbor
+          log-key: .vectors/conformance/log-public-key.der
+          text: .vectors/conformance/vectors/valid/text.txt
+          allow: VERIFIED
+
+      # And one that must not. `continue-on-error` inverts it: the step is
+      # expected to fail, and the assertion is that it did.
+      - name: a tampered receipt fails the job
+        id: tampered
+        continue-on-error: true
+        uses: ./
+        with:
+          receipt: .vectors/conformance/vectors/tampered/receipt.cbor
+          log-key: .vectors/conformance/log-public-key.der
+          text: .vectors/conformance/vectors/tampered/text.txt
+          allow: VERIFIED
+      - name: assert it failed
+        if: steps.tampered.outcome != 'failure'
+        run: |
+          echo "::error::the action passed a TAMPERED receipt. That is the one "\
+               "thing it exists to prevent."
+          exit 1

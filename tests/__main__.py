@@ -11,11 +11,12 @@ SPDX-License-Identifier: Apache-2.0
 
 import sys
 
-from . import test_offline, test_vectors
+from . import test_action, test_offline, test_vectors
 
 if __name__ == "__main__":
     failures = 0
-    for name, module in (("conformance vectors", test_vectors), ("offline", test_offline)):
+    for name, module in (("conformance vectors", test_vectors), ("offline", test_offline),
+                         ("github action", test_action)):
         print(f"\n{'=' * 68}\n{name}\n{'=' * 68}")
         failures += module.main()
     print("\nall suites passed" if not failures else f"\n{failures} suite(s) failed")

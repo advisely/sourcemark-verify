@@ -1,0 +1,68 @@
+name: 'Verify Sourcemark Receipts'
+description: >-
+  Check AI retrieval receipts offline. Proves cited text came from a specific
+  place in a specific document version, and that the commitment predates the
+  answer. Seven outcomes, never a boolean.
+author: 'advisely'
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  receipt:
+    description: 'Path or glob for the receipts to check, e.g. receipts/*.cbor'
+    required: true
+  log-key:
+    description: "The transparency log's public key, PEM or DER SubjectPublicKeyInfo"
+    required: true
+  text:
+    description: >-
+      File holding the cited text. For a glob, the text file matching each receipt
+      by stem is used (receipt foo.cbor pairs with foo.txt beside it).
+    required: false
+    default: ''
+  source:
+    description: >-
+      The original document. Enables the strongest check: the text is re-derived
+      from the file at the recorded byte range rather than taken on trust.
+    required: false
+    default: ''
+  allow:
+    description: >-
+      Comma-separated outcomes that count as a pass. Default VERIFIED. Add ERASED
+      where documents are legitimately erased under a retention policy; add PENDING
+      where a batch window may not have closed yet.
+    required: false
+    default: 'VERIFIED'
+  python-version:
+    description: 'Python used to run the verifier'
+    required: false
+    default: '3.12'
+
+outputs:
+  outcomes:
+    description: 'JSON array of {receipt, outcome, exit_status} for every receipt checked'
+    value: ${{ steps.verify.outputs.outcomes }}
+  failed:
+    description: 'Number of receipts whose outcome was not in `allow`'
+    value: ${{ steps.verify.outputs.failed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install the verifier
+      shell: bash
+      run: pip install --quiet "${{ github.action_path }}"
+    - name: Verify
+      id: verify
+      shell: bash
+      env:
+        SM_RECEIPT: ${{ inputs.receipt }}
+        SM_LOG_KEY: ${{ inputs.log-key }}
+        SM_TEXT: ${{ inputs.text }}
+        SM_SOURCE: ${{ inputs.source }}
+        SM_ALLOW: ${{ inputs.allow }}
+      run: python3 "${{ github.action_path }}/action/run.py"

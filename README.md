@@ -31,7 +31,7 @@ Precedence between them is fixed by the specification, so two conforming verifie
 ```bash
 pip install -e .
 tests/fetch-vectors.sh main          # the vectors live in the spec repository
-python3 -m tests                     # 53 checks
+python3 -m tests                     # 71 checks
 
 sourcemark-verify receipt.cbor --log-key log.pem --text chunk.txt
 sourcemark-verify receipt.cbor --log-key log.pem --source original.pdf
@@ -56,6 +56,23 @@ Exit statuses: `0` verified, `1` a custody failure, `2` malformed, `3` pending, 
 **It will not repair its input.** No whitespace trimming, no Unicode normalization, no line-ending fixes. Every one of those changes what was committed to, and a verifier that quietly repairs has stopped checking anything. A trailing newline is `TAMPERED`, and that is correct.
 
 **It will not accept an input it can recompute.** Under our own log profile the entry bytes are rebuilt from `corpus_root` and `committed_at`, and a receipt that supplies them is rejected outright rather than ignored — ignoring an unexpected field is how an input the issuer chose gets read by the next version.
+
+## In CI, as a GitHub Action
+
+```yaml
+- uses: advisely/sourcemark-verify@v0
+  with:
+    receipt: receipts/*.cbor
+    log-key: keys/log.pem
+    source: docs/SOP-114.pdf
+    allow: VERIFIED,ERASED     # what your deployment accepts, in writing
+```
+
+Fails the job unless every receipt reaches an outcome the workflow named, and writes a table into the run summary.
+
+**`allow` is an input rather than a default** because the wrong default is dangerous in both directions. A team with a retention policy legitimately sees `ERASED` and should not go red over a document they deliberately destroyed; a team anchoring in batches legitimately sees `PENDING` and wants a retry rather than an incident. Neither gets folded silently into "pass" — the workflow has to say which it accepts, in the repository, in a diff.
+
+Everything else is not configurable. There is no lenient mode, no warn-only for `TAMPERED`, and no way to ask for a boolean. And an **empty glob fails the job**: a run that checked nothing is the quietest way for this to stop protecting anything.
 
 ## Phase 1
 
