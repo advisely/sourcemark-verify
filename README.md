@@ -26,14 +26,36 @@ Folds three Merkle inclusion proofs, checks two signatures, re-derives the cited
 
 Precedence between them is fixed by the specification, so two conforming verifiers handed the same broken receipt name the same failure rather than two defensible ones.
 
-## Phase 0 deliverable
+## Running it
 
-| Item | Detail |
+```bash
+pip install -e .
+tests/fetch-vectors.sh main          # the vectors live in the spec repository
+python3 -m tests                     # 53 checks
+
+sourcemark-verify receipt.cbor --log-key log.pem --text chunk.txt
+sourcemark-verify receipt.cbor --log-key log.pem --source original.pdf
+```
+
+Exit statuses: `0` verified, `1` a custody failure, `2` malformed, `3` pending, `4` erased, `64` a usage error such as a missing cited text. Distinct on purpose, so a CI job can treat `PENDING` as a retry and `ERASED` as a pass-with-note without parsing prose.
+
+## Phase 0 deliverable — done
+
+| Item | Status |
 |---|---|
-| `sourcemark verify` | Static CLI binary, no runtime dependency |
-| Seven outcomes | Distinct exit statuses, so CI can treat `PENDING` as retry and `ERASED` as pass-with-note |
-| `--source` | Re-derives the chunk from the original file at the recorded byte range |
-| Offline | Zero network calls. Enforced by a test that fails if a socket opens. |
+| Seven outcomes, plus `MALFORMED`, with fixed precedence | 16 of 16 conformance vectors |
+| `--source` re-derivation from the original file | done, and reported as a distinct claim from `--text` |
+| Offline | enforced by a test that disables `socket` and re-runs every vector |
+| Both log profiles | our own COSE tree heads, and Rekor's leaf format with signed-note checkpoints |
+| Small enough to audit by hand | four files, one dependency |
+
+## Three things it refuses to do
+
+**It will not verify without the cited text.** Without it, the content-binding check cannot run and everything else proves only that *some* leaf is in the tree — not that it is the leaf backing the sentence in front of you. Handed no text it exits `64` by name. It does not downgrade to a weaker verdict, because a weaker verdict rendered in a terminal is read as a pass.
+
+**It will not repair its input.** No whitespace trimming, no Unicode normalization, no line-ending fixes. Every one of those changes what was committed to, and a verifier that quietly repairs has stopped checking anything. A trailing newline is `TAMPERED`, and that is correct.
+
+**It will not accept an input it can recompute.** Under our own log profile the entry bytes are rebuilt from `corpus_root` and `committed_at`, and a receipt that supplies them is rejected outright rather than ignored — ignoring an unexpected field is how an input the issuer chose gets read by the next version.
 
 ## Phase 1
 
@@ -66,4 +88,10 @@ Until that is true, the format is a product rather than a standard. This verifie
 
 ## Conformance
 
-This verifier must pass every vector in `advisely/sourcemark`'s `conformance/` directory at a pinned spec tag. CI enforces it. An implementation returning `VERIFIED` for anything under `tampered/` is non-conforming, and that has to be checkable by someone who does not work here.
+This verifier passes every vector in `advisely/sourcemark`'s `conformance/` directory at a pinned spec tag. The vectors are **not vendored here** — `tests/fetch-vectors.sh` clones them, and the suite skips loudly without them. A verifier shipping its own copy of the tests it must pass can drift from the specification and keep reporting green, which is the exact failure this repository exists to make impossible. Pinned rather than floating, too: a verifier that silently follows `main` can be made to pass by editing the tests.
+
+Four of the sixteen are the ones worth caring about. `unsigned-wrong-log`, `rekor-unpinned-body`, `rekor-checkpoint-mismatch` and `internal-with-entry-body` are each internally consistent and carry real signatures, and each reports `VERIFIED` under an implementation that folds proofs without asking what the proof was over.
+
+## What the separate repository has already caught
+
+The boundary is not ceremonial. Because this code shares nothing with the emitter — its CBOR, its Merkle folding and its decision procedure are separate implementations written from `spec/` — the first thing it produced was a defect in the vectors themselves: one carried a `byte_range` 433 bytes long around 156 bytes of text, so `--source` could never have passed. Every test inside the specification repository was green.

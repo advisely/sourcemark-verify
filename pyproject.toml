@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sourcemark-verify"
+version = "0.1.0.dev0"
+description = "Verify a Sourcemark retrieval receipt offline"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+# One dependency, and it is the signature library. Everything else -- CBOR,
+# Merkle folding, the decision procedure -- is in this repository, because
+# "small enough to audit by hand" has to survive reading the dependency list.
+dependencies = ["cryptography>=41"]
+
+[project.scripts]
+sourcemark-verify = "sourcemark_verify.cli:main"
+
+[project.urls]
+Specification = "https://github.com/advisely/sourcemark"
+
+[tool.setuptools.packages.find]
+include = ["sourcemark_verify*"]

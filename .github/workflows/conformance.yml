@@ -1,0 +1,28 @@
+name: conformance
+
+on: [push, pull_request]
+
+env:
+  # Pinned, not floating. A verifier that follows main can be made to pass by
+  # editing the tests it is supposed to be judged by.
+  SPEC_REF: main
+
+jobs:
+  vectors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install cryptography
+
+      - name: fetch the conformance vectors from the specification repository
+        run: tests/fetch-vectors.sh "$SPEC_REF"
+
+      # The suites refuse to run without vectors rather than skipping quietly,
+      # so a fetch that silently produced nothing fails the build here.
+      - name: every vector reaches its required outcome
+        run: python3 -m tests.test_vectors
+
+      - name: no socket is opened during verification
+        run: python3 -m tests.test_offline
